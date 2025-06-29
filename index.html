@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body {
+            height: 100vh;
+            background-color: black;
+        }
+        .row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5vmin;
+            margin: 5vmin;
+        }
+        .title::after {
+            content: ' ' attr(data-extra);
+        }
+        .button {
+            width: 20vmin;
+            font-size: 5vmin;
+            position: relative;
+            background: blue;   
+            aspect-ratio: 1;
+            border-radius: 50%;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            align-content: center;
+            transition: background 1s ease-in-out;
+            box-sizing: border-box;
+            &.full {
+                background: green;
+            }
+            &.recent::before {
+                border: .1em solid yellow;
+                border-radius: 50%;
+            }
+            &.play {
+                background: red;
+            }
+            &::before {
+                content: attr(data-install);
+                font-size: 2em;
+                display: inline-block;
+                width: 100%;
+                height: 100%;
+                align-content: center;
+                box-sizing: border-box;
+            }
+            &[data-extra]::before {
+                content: attr(data-install) ' + ' attr(data-extra);
+                font-size: 1em;
+                border-width: .2em;
+            }
+            &::after {
+                content: attr(data-installed) '/' attr(data-max);
+                position: absolute;
+                bottom: -1em;
+                left: -.5em;
+                right: -.5em;
+                text-align: center;
+                font-weight: bold;
+                font-size: 1em;
+                border: .2em solid black;
+                border-radius: 2em;
+                background: gray;
+            }
+        }
+        .ship::after {
+            content: attr(ship-name);
+            font-weight: bold;
+            font-size: 2em;
+            text-align: center;
+            display: block;
+            margin-top: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="center">
+        <h1 style="color: white; text-align: center;" class="title">Ship Installations</h1>
+        <div class="row">
+            <div id="install8" class="button"></div>
+            <div id="install4" class="button"></div>
+            <div id="install6" class="button"></div>
+            <div id="install9" class="button"></div>
+        </div>
+        <div class="row">
+            <div id="install2" class="button"></div>
+            <div id="install1" class="button"></div>
+            <div id="install3" class="button"></div>
+        </div>
+        <div class="row">
+            <div id="install10" class="button"></div>
+            <div id="install7" class="button"></div>
+            <div id="install5" class="button"></div>
+            <div id="install11" class="button"></div>
+        </div>
+    </div>
+    <input type="file" id="fileInput" accept=".txt">
+    <input type="number" id="lastInstalls" value="20">
+    <button type="button" id="play">Play</button>
+    <script type="module">
+        let installs = [];
+        let ship = '';
+        let animations = [];
+
+        const titleDiv = document.querySelector('.title');
+        const buttons = document.querySelectorAll('.button');
+        const fileInput = document.getElementById('fileInput');
+        const lastInstallsInput = document.getElementById('lastInstalls');
+        const playButton = document.getElementById('play');
+
+        const cradleMaxs = [1250, 125, 125, 100, 100, 50, 75, 500, 250, 150, 200];
+        const auxesiaMaxs = [1250, 75, 75, 100, 100, 75, 75, 125, 150, 50, 150];
+        const zagreusMaxs = [1250, 50, 50, 100, 100, 100, 100, 150, 50, 125, 100];
+        const hephaestusMaxs = [1250, 25, 25, 75, 75, 25, 100, 200, 425, 425, 425];
+        const demeterMaxs = [25, 1250, 125, 125, 125, 25, 50, 25, 125, 625, 274];
+        const koiosMaxs = [1250, 25, 25, 25, 25, 50, 50, 300, 150, 200, 750];
+        const zeusMax = [1250, 5, 5, 75, 100, 75, 250, 250, 250, 250, 250];
+        const maxs = {
+            cradle: cradleMaxs,
+            auxesia: auxesiaMaxs,
+            zagreus: zagreusMaxs,
+            hephaestus: hephaestusMaxs,
+            demeter: demeterMaxs,
+            koios: koiosMaxs,
+            zeus: zeusMax
+        };
+        /**
+         * @param {string[]} installs
+         */ 
+        function processInstalls() {
+            const totalInstalls = installs.length;
+            titleDiv.dataset.extra = `${ship} (${totalInstalls})`;
+            showInstalls(installs);
+            markRecent();
+        }
+
+        function showInstalls(installs) {
+            const max = maxs[ship.toLowerCase()];
+            const pointsPerInstall = installs.reduce((acc, val) => { acc[val - 1]++; return acc }, Array(11).fill(0));
+            buttons.forEach(button => {
+                const n = parseInt(button.dataset.install);
+                button.dataset.max = max[n - 1];
+                const installed = pointsPerInstall[n - 1];
+                button.dataset.installed = installed;
+                if (installed === max[n - 1]) {
+                    button.classList.add('full');
+                } else {
+                    button.classList.remove('full');
+                }
+            });
+        }
+
+        function markRecent() {
+            const lastInstalls = parseInt(lastInstallsInput.value);
+            const recentInstalls = installs.slice(-lastInstalls);
+            const uniqueInstalls = [...new Set(recentInstalls)];
+            buttons.forEach(button => {
+                const n = parseInt(button.dataset.install);
+                if (uniqueInstalls.includes(n)) {
+                    button.classList.add('recent');
+                } else {
+                    button.classList.remove('recent');
+                }
+            });
+        }
+
+        lastInstallsInput.addEventListener('change', markRecent);
+
+        playButton.addEventListener('click', async () => {
+            animations.forEach(animation => animation.cancel());
+            animations.length = 0;
+            const lastInstalls = parseInt(lastInstallsInput.value);
+            const recentInstalls = installs.slice(-lastInstalls);
+            const adjacentInstallsCount = recentInstalls.reduce((acc, val) => {
+                if (acc[acc.length - 1]?.install === val) {
+                    acc[acc.length - 1].count++;
+                } else {
+                    acc.push({ install: val, count: 1 });
+                }
+                return acc;
+            }, []);
+            let shown = 0;
+            for (const inst of adjacentInstallsCount) {
+                const install = inst.install;
+                const count = inst.count;
+                shown += count;
+                const button = document.getElementById(`install${install}`);
+                const extra = button.dataset.extra ? parseInt(button.dataset.extra) : 0;
+                const duration = 750;
+                buttons.forEach(btn => delete btn.dataset.extra);
+                button.dataset.extra = count;
+                showInstalls(installs.slice(0, shown === recentInstalls.length ? undefined : -lastInstalls + shown));
+                const animation = button.animate([
+                    { backgroundColor: 'yellow', transform: 'scale(1.1)' },
+                ], {
+                    duration: duration / 2 / count,
+                    iterations: 2 * count,
+                    direction: 'alternate',
+                    easing: 'ease-in-out'
+                });
+                animations.push(animation)
+                await animation.finished;
+            }
+            console.log('Animation finished');
+            buttons.forEach(btn => delete btn.dataset.extra);
+            showInstalls(installs);
+        });
+
+        fileInput.addEventListener('change', function(event) {
+            animations.forEach(animation => animation.cancel());
+            animations.length = 0;
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fileName = file.name;
+                ship = fileName.split('-')[0];
+                const content = e.target.result;
+                installs = content.split('\n').map(line => parseInt(line.trim())).filter(line => line);
+                processInstalls();
+            };
+            reader.readAsText(file);
+        });
+        buttons.forEach(button => {
+            button.dataset.install = button.id.replace('install', '');
+        });
+    </script>
+</body>
+</html>
