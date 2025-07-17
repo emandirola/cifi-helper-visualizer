@@ -5,6 +5,9 @@
         body {
             height: 100vh;
             background-color: black;
+            &.drag {
+                filter: blur(2px);
+            }
         }
         .row {
             display: flex;
@@ -183,6 +186,8 @@
                 }
                 return acc;
             }, []);
+            showInstalls(installs.slice(0, -lastInstalls));
+            await document.body.animate({}, {duration: 1000}).finished;
             let shown = 0;
             for (const inst of adjacentInstallsCount) {
                 const install = inst.install;
@@ -197,7 +202,7 @@
                 const animation = button.animate([
                     { backgroundColor: 'yellow', transform: 'scale(1.1)' },
                 ], {
-                    duration: duration / 2 / count,
+                    duration: duration / 2,
                     iterations: 2 * count,
                     direction: 'alternate',
                     easing: 'ease-in-out'
@@ -210,23 +215,45 @@
             showInstalls(installs);
         });
 
-        fileInput.addEventListener('change', function(event) {
-            animations.forEach(animation => animation.cancel());
-            animations.length = 0;
-            const file = event.target.files[0];
-            if (!file) return;
+        function readFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const fileName = file.name;
-                ship = fileName.split('-')[0];
                 const content = e.target.result;
                 installs = content.split('\n').map(line => parseInt(line.trim())).filter(line => line);
                 processInstalls();
             };
             reader.readAsText(file);
+            [ship] = file.name.split('-');
+        }
+
+        fileInput.addEventListener('change', function(event) {
+            animations.forEach(animation => animation.cancel());
+            animations.length = 0;
+            /**
+             * @type {HTMLInputElement}
+             */
+            const target = event.target;
+            const file = target.files[0];
+            if (!file) return;
+            readFile(file);
         });
         buttons.forEach(button => {
             button.dataset.install = button.id.replace('install', '');
+        });
+        document.body.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            document.body.classList.add('drag');
+        });
+        document.body.addEventListener('dragleave', () => {
+            document.body.classList.remove('drag');
+        });
+        document.body.addEventListener('drop', (event) => {
+            document.body.classList.remove('drag');
+            event.preventDefault();
+            const file = event.dataTransfer.items[0].getAsFile();
+            if (file && file.name.endsWith('.txt')) {
+                readFile(file);
+            }
         });
     </script>
 </body>
